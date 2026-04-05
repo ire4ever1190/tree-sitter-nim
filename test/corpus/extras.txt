@@ -127,6 +127,35 @@ proc example() =
           (comment_content))))))
 
 ================================================================================
+Comment at lower indent between statements stays inside proc
+================================================================================
+
+proc foo() =
+  echo "hello"
+# Indentation wasn't terminated, this comment is still in `foo`
+  echo "world"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (proc_declaration
+    name: (identifier)
+    parameters: (parameter_declaration_list)
+    body: (statement_list
+      (call
+        function: (identifier)
+        (argument_list
+          (interpreted_string_literal
+            (string_content))))
+      (comment
+        (comment_content))
+      (call
+        function: (identifier)
+        (argument_list
+          (interpreted_string_literal
+            (string_content)))))))
+
+================================================================================
 Block comments
 ================================================================================
 
