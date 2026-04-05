@@ -71,6 +71,62 @@ echo x,
     (comment_content)))
 
 ================================================================================
+Comments after proc body at lower indentation are excluded
+================================================================================
+
+proc example() =
+  discard
+# Outside comment
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (proc_declaration
+    name: (identifier)
+    parameters: (parameter_declaration_list)
+    body: (statement_list
+      (discard_statement)))
+  (comment
+    (comment_content)))
+
+================================================================================
+Comments inside proc body at matching indentation are included
+================================================================================
+
+proc example() =
+  discard
+  # Inside comment
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (proc_declaration
+    name: (identifier)
+    parameters: (parameter_declaration_list)
+    body: (statement_list
+      (discard_statement)
+      (comment
+        (comment_content)))))
+
+================================================================================
+Inline comments are not affected
+================================================================================
+
+proc example() =
+  discard # inline comment
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (proc_declaration
+    name: (identifier)
+    parameters: (parameter_declaration_list)
+    body: (statement_list
+      (discard_statement
+        (comment
+          (comment_content))))))
+
+================================================================================
 Block comments
 ================================================================================
 
