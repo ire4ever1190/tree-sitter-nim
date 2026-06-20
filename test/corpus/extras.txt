@@ -122,9 +122,9 @@ proc example() =
     name: (identifier)
     parameters: (parameter_declaration_list)
     body: (statement_list
-      (discard_statement
-        (comment
-          (comment_content))))))
+      (discard_statement)
+      (comment
+        (comment_content)))))
 
 ================================================================================
 Comment at lower indent between statements stays inside proc

@@ -75,10 +75,7 @@ struct indent_vec {
   indent_value* data;
 };
 
-#define INDENT_VEC_EMPTY                  \
-  {                                       \
-    .len = 0, .capacity = 0, .data = NULL \
-  }
+#define INDENT_VEC_EMPTY {.len = 0, .capacity = 0, .data = NULL}
 
 _nonnull_(1) static void indent_vec_destroy(struct indent_vec* self)
 {
@@ -267,10 +264,7 @@ struct valid_tokens {
 };
 
 #define TO_VT_BIT(value) 1U << (enum token_type)(value)
-#define VALID_TOKENS(bits_) \
-  {                         \
-    .bits = (bits_)         \
-  }
+#define VALID_TOKENS(bits_) {.bits = (bits_)}
 
 _nonnull_(1) _pure_ static struct valid_tokens valid_tokens_from_array(
     const bool* valid_tokens)
@@ -581,8 +575,8 @@ exit_short_comment_loop:
           DBG_F("block comment terminate nest level: %" PRIu32 "\n", nesting);
           nesting--;
         }
-        else if (valid_tokens_test(
-                     ctx->valid_tokens, BLOCK_DOC_COMMENT_CONTENT)) {
+        else if (
+            valid_tokens_test(ctx->valid_tokens, BLOCK_DOC_COMMENT_CONTENT)) {
           if (context_advance(ctx, false) == '#') {
             return context_finish(ctx, BLOCK_DOC_COMMENT_CONTENT);
           }
@@ -734,12 +728,56 @@ LEX_FN(lex_case_of)
 const struct valid_tokens NO_LAYOUT_END_CTX =
     VALID_TOKENS(TO_VT_BIT(INHIBIT_LAYOUT_END) | TO_VT_BIT(LONG_STRING_QUOTE));
 
+_nonnull_(1) static indent_value peek_effective_indent(struct context* ctx)
+{
+  for (;;) {
+    // Skip a comment line (advance to newline or EOF)
+    for (;;) {
+      if (context_eof(ctx)) {
+        return 0;
+      }
+      uint32_t c = context_lookahead(ctx);
+      if (c == '\n' || c == '\r') {
+        break;
+      }
+      context_advance(ctx, true);
+    }
+
+    // Scan whitespace past the comment to find next real code
+    indent_value indent = INVALID_INDENT_VALUE;
+    for (;;) {
+      if (context_eof(ctx)) {
+        return 0;
+      }
+      uint32_t c = context_lookahead(ctx);
+      if (c == ' ') {
+        if (indent == INVALID_INDENT_VALUE) {
+          indent = 0;
+        }
+        indent++;
+        context_advance(ctx, true);
+      }
+      else if (c == '\n' || c == '\r') {
+        indent = INVALID_INDENT_VALUE;
+        context_advance(ctx, true);
+      }
+      else if (c == '#') {
+        break;  // another comment restart from outer loop
+      }
+      else {
+        return (indent == INVALID_INDENT_VALUE) ? 0 : indent;
+      }
+    }
+  }
+  return 0;
+}
+
 // This function is big by design.
 //
 // NOLINTNEXTLINE(*-cognitive-complexity)
 LEX_FN(lex_indent)
 {
-  if (context_lookahead(ctx) == '#' || ctx->state->layout_stack.len == 0) {
+  if (ctx->state->layout_stack.len == 0) {
     return false;
   }
 
@@ -749,6 +787,31 @@ LEX_FN(lex_indent)
   }
 
   indent_value current_layout = indent_vec_back(&ctx->state->layout_stack);
+
+  // Handle comments: look ahead to determine effective indentation.
+  // The LAYOUT_TERMINATOR/LAYOUT_END tokens will be zero-width at the
+  // initial position (mark_end from entry point), allowing scan_spaces
+  // to re-scan the newline and set FLAG_AFTER_NEWLINE on the next call.
+  if (context_lookahead(ctx) == '#') {
+    if (current_indent < current_layout) {
+      indent_value effective_indent = peek_effective_indent(ctx);
+
+      if (valid_tokens_test(ctx->valid_tokens, LAYOUT_TERMINATOR)) {
+        return context_finish(ctx, LAYOUT_TERMINATOR);
+      }
+
+      if (valid_tokens_test(ctx->valid_tokens, LAYOUT_END)) {
+        if (effective_indent < current_layout || context_eof(ctx)) {
+          if (ctx->state->layout_stack.len > 1) {
+            indent_vec_pop(&ctx->state->layout_stack);
+            return context_finish(ctx, LAYOUT_END);
+          }
+        }
+      }
+    }
+    // Comment at same/higher indent: don't end layout
+    return false;
+  }
 
   if (valid_tokens_test(ctx->valid_tokens, LAYOUT_START)) {
     if (current_indent > current_layout) {
@@ -1056,12 +1119,12 @@ LEX_FN(lex_main)
 {
   TRY_LEX(ctx, lex_init);
 
-  TRY_LEX(ctx, lex_comment_content);
   TRY_LEX(ctx, lex_long_string_quote);
 
   size_t spaces = scan_spaces(ctx, false);
 
   TRY_LEX(ctx, lex_indent);
+  TRY_LEX(ctx, lex_comment_content);
   TRY_LEX(ctx, lex_operators, spaces == 0);
   TRY_LEX(ctx, lex_inline_layout);
 
@@ -1086,8 +1149,7 @@ void tree_sitter_nim_external_scanner_destroy(void* payload)
   state_destroy((struct state*)payload);
 }
 
-unsigned tree_sitter_nim_external_scanner_serialize(
-    void* payload, char* buffer)
+unsigned tree_sitter_nim_external_scanner_serialize(void* payload, char* buffer)
 {
   if (!payload || !buffer) {
     DBG("error: no payload or buffer");

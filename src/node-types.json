@@ -852,6 +852,7 @@
   {
     "type": "block_comment",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -867,6 +868,7 @@
   {
     "type": "block_documentation_comment",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -2294,6 +2296,7 @@
   {
     "type": "comment",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -3496,6 +3499,7 @@
   {
     "type": "documentation_comment",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
